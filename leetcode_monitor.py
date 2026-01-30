@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import time
+import random
 import websocket
 
 
@@ -21,33 +23,55 @@ class LeetCodeMonitor:
         """
         uri = cls.BASE_URI.format(problem_slug)
 
-        # Custom headers to mimic a browser
+        # Enhanced headers to mimic a real browser more closely
         headers = {
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "*/*",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "gzip, deflate, br",
             "Origin": "https://leetcode.com",
+            "Sec-Fetch-Dest": "websocket",
+            "Sec-Fetch-Mode": "websocket",
+            "Sec-Fetch-Site": "same-site",
+            "Pragma": "no-cache",
+            "Cache-Control": "no-cache",
         }
 
-        try:
-            # Create WebSocket connection
-            ws = websocket.create_connection(uri, header=headers, timeout=10)
-
+        # Retry logic with exponential backoff
+        max_retries = 3
+        for attempt in range(max_retries):
             try:
-                # The server pushes a raw string representing the count on connection
-                message = ws.recv()
+                # Add random delay to appear more human-like
+                if attempt > 0:
+                    delay = (2**attempt) + random.uniform(0, 1)
+                    time.sleep(delay)
 
-                # Try to interpret the result as an integer
+                # Create WebSocket connection
+                ws = websocket.create_connection(uri, header=headers, timeout=15)
+
                 try:
-                    return int(message)
-                except ValueError:
-                    # If slightly different format
-                    print(f"Received unexpected format: {message}")
-                    return -1
-            finally:
-                ws.close()
+                    # The server pushes a raw string representing the count on connection
+                    message = ws.recv()
 
-        except Exception as e:
-            print(f"Error fetching online users for {problem_slug}: {e}")
-            return -1
+                    # Try to interpret the result as an integer
+                    try:
+                        return int(message)
+                    except ValueError:
+                        # If slightly different format
+                        print(f"Received unexpected format: {message}")
+                        return -1
+                finally:
+                    ws.close()
+
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    # Last attempt failed
+                    print(f"Error fetching online users for {problem_slug}: {e}")
+                    return -1
+                # Otherwise, retry
+                continue
+
+        return -1
 
 
 if __name__ == "__main__":

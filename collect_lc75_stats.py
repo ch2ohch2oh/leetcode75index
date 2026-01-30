@@ -8,6 +8,8 @@ import argparse
 import csv
 import os
 import sys
+import time
+import random
 from datetime import datetime
 from pathlib import Path
 
@@ -43,6 +45,10 @@ def collect_stats(input_file: str, output_file: str, verbose: bool = False) -> d
     failed_checks = 0
 
     for i, slug in enumerate(slugs, 1):
+        # Add small random delay to avoid rate limiting
+        if i > 1:  # Skip delay for first request
+            time.sleep(random.uniform(0.5, 1.5))
+
         count = LeetCodeMonitor.get_online_users(slug)
 
         if count >= 0:
