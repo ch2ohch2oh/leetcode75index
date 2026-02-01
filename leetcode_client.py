@@ -27,11 +27,12 @@ class LeetCodeMonitor:
 
         # Enhanced headers to mimic a real browser more closely
         headers = {
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
             "Accept": "*/*",
             "Accept-Language": "en-US,en;q=0.9",
             "Accept-Encoding": "gzip, deflate, br",
             "Origin": "https://leetcode.com",
+            "Sec-WebSocket-Extensions": "permessage-deflate; client_max_window_bits",
             "Sec-Fetch-Dest": "websocket",
             "Sec-Fetch-Mode": "websocket",
             "Sec-Fetch-Site": "same-site",
@@ -68,7 +69,14 @@ class LeetCodeMonitor:
             except Exception as e:
                 if attempt == max_retries - 1:
                     # Last attempt failed
-                    print(f"Error fetching online users for {problem_slug}: {e}")
+                    error_msg = str(e)
+                    if "403 Forbidden" in error_msg:
+                        print(
+                            f"Error fetching online users for {problem_slug}: Cloudflare blocked the request (403 Forbidden). "
+                            "This often happens on GCP/cloud environments due to IP reputation or bot detection."
+                        )
+                    else:
+                        print(f"Error fetching online users for {problem_slug}: {e}")
                     return -1
                 # Otherwise, retry
                 continue
