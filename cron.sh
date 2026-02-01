@@ -35,7 +35,16 @@ git add data/ public/index.html
 
 # Check if there are changes to commit
 if ! git diff --cached --quiet; then
-    git commit -m "Auto-update: $(date '+%Y-%m-%d %H:%M:%S')"
+    # Prepare git commit with optional bot identity
+    GIT_COMMIT_CMD="git"
+    if [ -n "$GIT_USER_NAME" ]; then
+        GIT_COMMIT_CMD="$GIT_COMMIT_CMD -c user.name=\"$GIT_USER_NAME\""
+    fi
+    if [ -n "$GIT_USER_EMAIL" ]; then
+        GIT_COMMIT_CMD="$GIT_COMMIT_CMD -c user.email=\"$GIT_USER_EMAIL\""
+    fi
+    
+    $GIT_COMMIT_CMD commit -m "Auto-update: $(date '+%Y-%m-%d %H:%M:%S')"
     
     # Use GITHUB_TOKEN if available
     TOKEN="${GITHUB_TOKEN}"
