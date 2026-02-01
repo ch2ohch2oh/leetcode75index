@@ -8,6 +8,8 @@ cd "$script_dir"
 # Activate venv if it exists
 if [ -d "venv" ]; then
     source venv/bin/activate
+    echo "Updating dependencies..."
+    pip install -r requirements.txt
 fi
 
 echo "========================================"
