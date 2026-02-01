@@ -56,13 +56,13 @@
         }
 
         select {
-            padding: 0.5rem 0;
-            font-size: 1rem;
-            border: none;
-            border-bottom: 1px solid var(--border-color);
-            background: transparent;
+            padding: 0.2rem 0.4rem;
+            font-size: 0.85rem;
+            font-weight: 500;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: #fff;
             cursor: pointer;
-            min-width: 150px;
             color: var(--text-color);
             font-family: inherit;
         }
@@ -74,20 +74,17 @@
 
         .stats-summary {
             display: flex;
-            gap: 4rem;
-            margin-top: 2rem;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            margin-top: 1rem;
             font-size: 0.9rem;
             color: var(--secondary-text);
-            align-items: flex-start;
+            align-items: center;
         }
 
-        .stat-item span {
-            display: block;
-            font-size: 1.5rem;
-            font-weight: 400;
+        .stats-summary span#currentValue {
+            font-weight: 500;
             color: var(--text-color);
-            margin-top: 0.25rem;
-            letter-spacing: -0.02em;
         }
 
         .index-description {
@@ -105,9 +102,9 @@
         }
 
         .chart-wrapper {
-            margin-top: 2rem;
+            margin-top: 1.5rem;
             position: relative;
-            height: 400px;
+            height: 550px;
             width: 100%;
         }
 
@@ -138,15 +135,21 @@
                 font-size: 1.75rem;
             }
 
+            header {
+                text-align: center;
+                margin-bottom: 3rem;
+            }
+
             .header-description {
                 font-size: 0.85rem;
                 margin-top: -0.5rem;
-                margin-bottom: 2rem;
+                margin-bottom: 1.5rem;
             }
 
             .stats-summary {
-                flex-direction: column;
-                gap: 2rem;
+                justify-content: center;
+                text-align: center;
+                gap: 0.4rem;
                 margin-top: 1.5rem;
             }
 
@@ -172,26 +175,12 @@
         <p class="header-description">Real-time solver activity across LeetCode problem sets.</p>
 
         <div class="stats-summary" id="statsSummary">
-            <div class="stat-item">
-                <div class="controls">
-                    Problem Set
-                    <select id="indexSelect">
-                        <!-- Options will be populated by JS -->
-                    </select>
-                    <div class="index-description" id="indexDescription">
-                        <!-- Populated by JS -->
-                    </div>
-                </div>
-            </div>
-            <div class="stat-item">
-                Active LeetCoders
-                <span id="currentValue">-</span>
-            </div>
-            <div class="stat-item">
-                Last Updated
-                <span id="lastUpdate">-</span>
-            </div>
+            There are <span id="currentValue">-</span> leetcoders currently working on
+            <select id="indexSelect">
+                <!-- Options will be populated by JS -->
+            </select>
         </div>
+        <div id="indexDescription" style="display: none;"></div>
     </header>
 
     <div class="chart-wrapper">
@@ -199,8 +188,8 @@
     </div>
 
     <footer>
-        <p>© 2026 LeetCode Pulse</p>
-        <p>Real-time data aggregated from LeetCode.</p>
+        <p>© 2026 LeetCode Pulse • Last updated <span id="lastUpdate">-</span></p>
+        <p>Real-time data aggregated from LeetCode</p>
     </footer>
 
     <script>
