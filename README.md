@@ -15,37 +15,35 @@ View the live dashboard: `https://YOUR_USERNAME.github.io/YOUR_REPO/`
 
 ## Scripts
 
-### 1. `leetcode_monitor.py`
-Core monitoring class and CLI tool to check online users for individual problems.
+### 1. `leetcode_client.py`
 
-**Usage:**
+Handles WebSocket connections to LeetCode's collaboration service.
+
+Usage:
 ```bash
-# Use default data/leetcode75.txt
-./leetcode_monitor.py
-
-# Use custom input file
-./leetcode_monitor.py -i custom_problems.txt
-
+./leetcode_client.py
+# Or with specific inputs
+./leetcode_client.py -i custom_problems.txt
 # View help
-./leetcode_monitor.py --help
+./leetcode_client.py --help
 ```
 
-### 2. `collect_lc75_stats.py`
-Periodic data collection script that aggregates total online users across all LeetCode 75 problems and logs results to a CSV file with timestamps.
+### 2. `collect_stats.py`
+Periodic data collection script that aggregates total online users across configured indices (e.g., LeetCode 75) and logs results to CSV files.
 
 **Usage:**
 ```bash
-# Run once with verbose output
-./collect_lc75_stats.py -v
+# Run with default config (config/indices.yaml)
+./collect_stats.py
 
-# Run quietly (for cron jobs)
-./collect_lc75_stats.py
+# Run with verbose output
+./collect_stats.py -v
 
-# Custom output file
-./collect_lc75_stats.py -o custom_stats.csv
+# Use custom config file
+./collect_stats.py -c config/my_indices.yaml
 
 # View help
-./collect_lc75_stats.py --help
+./collect_stats.py --help
 ```
 
 **Output Format:**
@@ -56,30 +54,46 @@ The CSV file contains the following columns:
 - `problems_failed`: Number of problems that failed to check
 - `total_problems`: Total number of problems in the input file
 
-### 3. `get_leetcode75.py`
-Fetches the current list of LeetCode 75 problems from the LeetCode API and saves them to `data/leetcode75.txt`.
+### 3. Fetching Study Plans
+Pass `--fetch-plan` to `leetcode_client.py` to retrieve problem lists from LeetCode.
 
 **Usage:**
 ```bash
-./get_leetcode75.py
+# Fetch LeetCode 75 (default)
+./leetcode_client.py --fetch-plan leetcode-75
+
+# Fetch another study plan and save to file
+./leetcode_client.py --fetch-plan top-interview-150 -o data/top_150.txt
 ```
 
-## GitHub Pages Deployment
+## 🚀 Deployment Options
 
-This project is designed to run as a static site on GitHub Pages with automated data collection via GitHub Actions.
+### Option 1: GCP VM (Recommended) ⭐
 
-**📖 See [GITHUB_PAGES_SETUP.md](GITHUB_PAGES_SETUP.md) for complete deployment instructions.**
+Deploy on a **free GCP e2-micro VM** with automated hourly cron job:
+
+**📖 See [GCP_DEPLOYMENT.md](GCP_DEPLOYMENT.md) for complete setup guide.**
+
+Quick start:
+1. Create GitHub Personal Access Token
+2. Edit `deploy-gcp.sh` with your project ID and token
+3. Run `./deploy-gcp.sh`
+4. VM will collect data every hour and push to GitHub
+
+**Benefits:**
+- ✅ 100% free (GCP free tier)
+- ✅ Reliable (avoids Cloudflare blocking)
+- ✅ Automated (runs 24/7)
+- ✅ Simple setup (one script)
+
+### Option 2: GitHub Pages (Manual/Local)
+
+**Note:** GitHub Actions may be blocked by Cloudflare. Use GCP VM for reliable automation.
 
 Quick start:
 1. Push this repository to GitHub
 2. Enable GitHub Pages (Settings → Pages → Source: GitHub Actions)
-3. Enable GitHub Actions and run the workflow
-4. Your dashboard will be live at `https://YOUR_USERNAME.github.io/YOUR_REPO/`
-
-The GitHub Action will automatically:
-- Collect data every hour
-- Update the CSV file
-- Deploy the latest dashboard
+3. Your dashboard will be live at `https://YOUR_USERNAME.github.io/YOUR_REPO/`
 
 ## Local Development Setup
 
@@ -96,7 +110,7 @@ pip install -r requirements.txt
 
 3. **Make scripts executable:**
 ```bash
-chmod +x leetcode_monitor.py collect_lc75_stats.py get_leetcode75.py
+chmod +x leetcode_client.py collect_stats.py generate_site.py
 ```
 
 ## Scheduling Periodic Collection
@@ -110,23 +124,23 @@ crontab -e
 # Add one of these lines:
 
 # Run every 15 minutes
-*/15 * * * * cd /Users/dazhi/code/lcmonitor && source venv/bin/activate && ./collect_lc75_stats.py
+*/15 * * * * cd /Users/dazhi/code/lcmonitor && source venv/bin/activate && ./collect_stats.py
 
 # Run every hour at minute 0
-0 * * * * cd /Users/dazhi/code/lcmonitor && source venv/bin/activate && ./collect_lc75_stats.py
+0 * * * * cd /Users/dazhi/code/lcmonitor && source venv/bin/activate && ./collect_stats.py
 
 # Run every day at 9 AM
-0 9 * * * cd /Users/dazhi/code/lcmonitor && source venv/bin/activate && ./collect_lc75_stats.py
+0 9 * * * cd /Users/dazhi/code/lcmonitor && source venv/bin/activate && ./collect_stats.py
 ```
 
 **Note:** Make sure to use absolute paths in cron jobs and activate the virtual environment.
 
 ## Data Files
 
-- `data/leetcode75.txt`: List of LeetCode 75 problem slugs (one per line)
-- `data/lc75_stats.csv`: Historical statistics (created by `collect_lc75_stats.py`)
+- `data/leetcode75_problems.txt`: List of LeetCode 75 problem slugs (one per line)
+- `data/leetcode75_stats.csv`: Historical statistics (created by `collect_stats.py`)
 
-## Requirements
+- `site/index.html`: Dashboard visualization
 
 - Python 3.7+
 - `requests>=2.31.0`
@@ -136,11 +150,9 @@ crontab -e
 
 ### Individual Problem Monitoring
 ```
-$ ./leetcode_monitor.py
-Loaded 75 problems from /Users/dazhi/code/lcmonitor/data/leetcode75.txt
-
-Problem: merge-strings-alternately                          | Online Users: 136
-Problem: greatest-common-divisor-of-strings                 | Online Users: 97
+$ ./leetcode_client.py
+Problem: two-sum                                            | Online Users: 2341
+Problem: add-two-numbers                                    | Online Users: 154397
 Problem: container-with-most-water                          | Online Users: 360
 ...
 ```
@@ -170,3 +182,17 @@ timestamp,total_users,problems_checked,problems_failed,total_problems
 ## License
 
 MIT
+
+## Visualization
+
+The `site/index.html` file provides a dashboard visualization of the collected data. This file is generated based on your configuration.
+
+
+**Generate Dashboard:**
+```bash
+./venv/bin/python generate_site.py
+```
+This updates `site/index.html`.
+
+**Deployment:**
+The site is automatically deployed to GitHub Pages via the workflow in `.github/workflows/deploy.yml`. The build artifact is in the `public/` directory (not committed).

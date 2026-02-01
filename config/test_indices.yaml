@@ -1,0 +1,5 @@
+indices:
+  - name: "Test Index"
+    id: "test"
+    input_file: "data/test_problems.txt"
+    output_file: "data/test_stats.csv"

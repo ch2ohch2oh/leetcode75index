@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 import time
 import random
+import sys
 import websocket
+import requests
 
 
 class LeetCodeMonitor:
@@ -74,6 +76,68 @@ class LeetCodeMonitor:
         return -1
 
 
+def get_study_plan_problems(plan_slug: str):
+    """
+    Fetches the list of problem title slugs from a LeetCode study plan.
+
+    Args:
+        plan_slug (str): The slug of the study plan (e.g., 'leetcode-75', 'top-interview-150').
+
+    Returns:
+        list: A list of title slugs for all problems in the plan.
+    """
+    url = "https://leetcode.com/graphql"
+    query = """
+    query studyPlanV2Detail($slug: String!) {
+      studyPlanV2Detail(planSlug: $slug) {
+        planSubGroups {
+          questions {
+            titleSlug
+          }
+        }
+      }
+    }
+    """
+    variables = {"slug": plan_slug}
+
+    headers = {
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36",
+        "Referer": f"https://leetcode.com/studyplan/{plan_slug}/",
+    }
+
+    try:
+        response = requests.post(
+            url,
+            json={"query": query, "variables": variables},
+            headers=headers,
+            timeout=10,
+        )
+
+        if response.status_code != 200:
+            print(
+                f"Request failed with status code {response.status_code}",
+                file=sys.stderr,
+            )
+            return []
+
+        data = response.json()
+        questions = []
+        if "data" in data and "studyPlanV2Detail" in data["data"]:
+            detail = data["data"]["studyPlanV2Detail"]
+            if detail and "planSubGroups" in detail:
+                for group in detail["planSubGroups"]:
+                    if "questions" in group:
+                        for question in group["questions"]:
+                            if "titleSlug" in question:
+                                questions.append(question["titleSlug"])
+        return questions
+
+    except Exception as e:
+        print(f"An error occurred: {e}", file=sys.stderr)
+        return []
+
+
 if __name__ == "__main__":
     import argparse
     import os
@@ -81,13 +145,16 @@ if __name__ == "__main__":
 
     # Set up argument parser
     parser = argparse.ArgumentParser(
-        description="Monitor online users viewing LeetCode problems.",
+        description="Interact with LeetCode: Monitor users or fetch study plans.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s                              # Use default data/leetcode75.txt
-  %(prog)s -i custom_problems.txt       # Use custom input file
-  %(prog)s --input data/my_list.txt     # Use custom input file (long form)
+  # Monitor users (existing behavior)
+  %(prog)s
+  %(prog)s -i custom_problems.txt
+
+  # Fetch study plan
+  %(prog)s --fetch-plan leetcode-75 -o data/leetcode75.txt
         """,
     )
 
@@ -101,11 +168,55 @@ Examples:
         type=str,
         default=default_input,
         metavar="FILE",
-        help=f"input file containing problem slugs (default: {default_input})",
+        help=f"input file containing problem slugs for monitoring (default: {default_input})",
+    )
+
+    parser.add_argument(
+        "--fetch-plan",
+        type=str,
+        metavar="SLUG",
+        help="fetch problems from a study plan slug (e.g. leetcode-75)",
+    )
+
+    parser.add_argument(
+        "-o",
+        "--output",
+        type=str,
+        metavar="OUT_FILE",
+        help="output file to save fetched problems",
     )
 
     args = parser.parse_args()
 
+    # Mode 1: Fetch Plan
+    if args.fetch_plan:
+        print(f"Fetching problems for study plan: {args.fetch_plan}...")
+        slugs = get_study_plan_problems(args.fetch_plan)
+
+        if not slugs:
+            print("No problems found or error occurred.")
+            sys.exit(1)
+
+        print(f"Found {len(slugs)} problems.")
+
+        if args.output:
+            # Create output directory if needed
+            output_dir = os.path.dirname(os.path.abspath(args.output))
+            if output_dir:
+                os.makedirs(output_dir, exist_ok=True)
+
+            with open(args.output, "w") as f:
+                for slug in slugs:
+                    f.write(slug + "\n")
+            print(f"Saved to {args.output}")
+        else:
+            print("First 5 problems:")
+            for s in slugs[:5]:
+                print(f"  - {s}")
+
+        sys.exit(0)
+
+    # Mode 2: Monitor Users
     # Read problem slugs from file
     try:
         with open(args.input, "r") as f:

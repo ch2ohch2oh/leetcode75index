@@ -44,6 +44,10 @@ venv.bak/
 .AppleDouble
 .LSOverride
 
+# Deployment scripts with secrets
+deploy-gcp.sh
+.env.local
+
 # Logs
 *.log
 
@@ -81,3 +85,5 @@ dmypy.json
 
 # pytype static type analyzer
 .pytype/
+.ruff_cache
+public/
