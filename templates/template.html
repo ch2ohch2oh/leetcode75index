@@ -76,7 +76,7 @@
         .stats-summary {
             display: flex;
             flex-wrap: wrap;
-            gap: 0.4rem;
+            gap: 0.25rem;
             margin-top: 1rem;
             font-size: 0.9rem;
             color: var(--text-color);
@@ -147,7 +147,7 @@
             .stats-summary {
                 justify-content: center;
                 text-align: center;
-                gap: 0.4rem;
+                gap: 0.25rem;
                 margin-top: 1.5rem;
             }
 
@@ -173,13 +173,18 @@
         <p class="header-description">We track the panic so you don’t have to.</p>
 
         <div class="stats-summary" id="statsSummary">
-            <span id="currentValue">-</span> new submissions
+            <span id="currentValue">-</span>
+            new
+            <select id="metricSelect">
+                <option value="total_submissions" selected>submissions</option>
+                <option value="total_accepted">accepted</option>
+            </select>
             for
             <select id="indexSelect">
                 <!-- Options will be populated by JS -->
             </select>
             during the past
-            <select id="intervalSelect" style="margin-left: 0.5rem; padding: 0.1rem 0.3rem;">
+            <select id="intervalSelect" style="padding: 0.1rem 0.3rem;">
                 <option value="hour" selected>hour</option>
                 <option value="day">day</option>
                 <option value="week">week</option>
@@ -210,6 +215,7 @@
         // Initialize Dropdowns
         const indexSelect = document.getElementById('indexSelect');
         const intervalSelect = document.getElementById('intervalSelect');
+        const metricSelect = document.getElementById('metricSelect');
 
         INDICES.forEach(idx => {
             const option = document.createElement('option');
@@ -227,25 +233,34 @@
             updateView();
         });
 
+        metricSelect.addEventListener('change', (e) => {
+            updateView();
+        });
+
         function updateView() {
             const selectedId = indexSelect.value;
             const indexConfig = INDICES.find(i => i.id === selectedId);
             if (indexConfig) {
                 // Determine interval
                 const interval = intervalSelect.value;
-                loadData(indexConfig, interval);
+                const metric = metricSelect.value;
+                loadData(indexConfig, interval, metric);
             }
         }
 
-        function aggregateData(rawData, interval) {
+        function aggregateData(rawData, interval, metric) {
             // 1. Calculate diffs for all data points first
             const diffs = [];
             for (let i = 1; i < rawData.length; i++) {
                 const current = rawData[i];
                 const prev = rawData[i - 1];
                 let val = 0;
-                if (current.total_submissions > 0 && prev.total_submissions > 0) {
-                    val = current.total_submissions - prev.total_submissions;
+
+                const curVal = current[metric] || 0;
+                const prevVal = prev[metric] || 0;
+
+                if (curVal > 0 && prevVal > 0) {
+                    val = curVal - prevVal;
                     if (val < 0) val = 0; // Handle potential resets or errors
                 }
                 diffs.push({
@@ -301,7 +316,7 @@
             }));
         }
 
-        function loadData(indexConfig, interval) {
+        function loadData(indexConfig, interval, metric) {
             const rawData = ALL_DATA[indexConfig.id];
 
             if (!rawData || rawData.length === 0) {
@@ -312,13 +327,13 @@
                 return;
             }
 
-            const processedData = aggregateData(rawData, interval);
+            const processedData = aggregateData(rawData, interval, metric);
 
-            updateChart(processedData, indexConfig.name, interval);
-            updateSummary(processedData, indexConfig);
+            updateChart(processedData, indexConfig.name, interval, metric);
+            updateSummary(processedData, indexConfig, metric);
         }
 
-        function updateSummary(data, indexConfig) {
+        function updateSummary(data, indexConfig, metric) {
             if (!data || data.length === 0) return;
             const latest = data[data.length - 1];
 
@@ -343,8 +358,13 @@
             document.getElementById('indexDescription').textContent = indexConfig.description || '';
         }
 
-        function updateChart(data, label, interval) {
+        function updateChart(data, label, interval, metric) {
             const ctx = document.getElementById('chart').getContext('2d');
+
+            let labelText = "New Submissions";
+            if (metric === 'total_accepted') {
+                labelText = "Accepted Solutions";
+            }
 
             if (chart) chart.destroy();
 
@@ -352,7 +372,7 @@
                 type: 'line',
                 data: {
                     datasets: [{
-                        label: 'New Submissions',
+                        label: labelText,
                         data: data.map(d => ({ x: d.timestamp, y: d.value })),
                         borderColor: '#000000',
                         borderWidth: 1.5,
@@ -409,7 +429,7 @@
                                     }
                                     return d.toLocaleString('en-US', fmt);
                                 },
-                                label: (context) => `${context.parsed.y.toLocaleString()} New Submissions`
+                                label: (context) => `${context.parsed.y.toLocaleString()} ${labelText}`
                             }
                         }
                     },
