@@ -241,29 +241,34 @@
         }
 
         function aggregateData(rawData, interval) {
-            if (interval === 'raw') {
-                // Existing logic: simple delta between consecutive points
-                return rawData.map((d, i) => {
-                    const timestamp = new Date(d.timestamp);
-                    let newSubmissions = 0;
-                    if (i > 0) {
-                        const prev = rawData[i - 1];
-                        if (d.total_submissions > 0 && prev.total_submissions > 0) {
-                            newSubmissions = d.total_submissions - prev.total_submissions;
-                            if (newSubmissions < 0) newSubmissions = 0;
-                        }
-                    }
-                    return {
-                        timestamp: timestamp,
-                        value: newSubmissions,
-                        raw_submissions: d.total_submissions
-                    };
+            // 1. Calculate diffs for all data points first
+            const diffs = [];
+            for (let i = 1; i < rawData.length; i++) {
+                const current = rawData[i];
+                const prev = rawData[i - 1];
+                let val = 0;
+                if (current.total_submissions > 0 && prev.total_submissions > 0) {
+                    val = current.total_submissions - prev.total_submissions;
+                    if (val < 0) val = 0; // Handle potential resets or errors
+                }
+                diffs.push({
+                    timestamp: new Date(current.timestamp),
+                    value: val
                 });
             }
 
-            // Bucketize
+            if (interval === 'raw') {
+                return diffs.map(d => ({
+                    timestamp: d.timestamp,
+                    value: d.value,
+                    raw_submissions: 0 // Not strictly needed for raw view in this new logic but keeping structure
+                }));
+            }
+
+            // 2. Aggregate diffs into buckets
             const buckets = new Map();
-            rawData.forEach(d => {
+
+            diffs.forEach(d => {
                 const time = new Date(d.timestamp);
                 let key;
                 if (interval === 'hour') {
@@ -283,32 +288,20 @@
                     time.setHours(0, 0, 0, 0);
                     key = time.getTime();
                 }
-                // Store the last data point of the interval (data is chronological)
-                buckets.set(key, d);
-            });
 
-            const sortedKeys = Array.from(buckets.keys()).sort();
-            const result = [];
-
-            sortedKeys.forEach((key, i) => {
-                const currentData = buckets.get(key);
-                let val = 0;
-                if (i > 0) {
-                    const prevKey = sortedKeys[i - 1];
-                    const prevData = buckets.get(prevKey);
-                    // Calculate delta from the end of previous interval to end of current
-                    if (currentData.total_submissions > 0 && prevData.total_submissions > 0) {
-                        val = currentData.total_submissions - prevData.total_submissions;
-                        if (val < 0) val = 0;
-                    }
+                if (!buckets.has(key)) {
+                    buckets.set(key, 0);
                 }
-                result.push({
-                    timestamp: new Date(key),
-                    value: val,
-                    raw_submissions: currentData.total_submissions
-                });
+                buckets.set(key, buckets.get(key) + d.value);
             });
-            return result;
+
+            // 3. Format result
+            const sortedKeys = Array.from(buckets.keys()).sort();
+            return sortedKeys.map(key => ({
+                timestamp: new Date(key),
+                value: buckets.get(key),
+                raw_submissions: 0 // Placeholder as we are summing diffs now
+            }));
         }
 
         function loadData(indexConfig, interval) {
