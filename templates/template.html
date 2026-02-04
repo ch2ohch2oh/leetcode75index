@@ -249,70 +249,124 @@
         }
 
         function aggregateData(rawData, interval, metric) {
-            // 1. Calculate diffs for all data points first
+            // 1. Calculate diffs with duration
             const diffs = [];
             for (let i = 1; i < rawData.length; i++) {
                 const current = rawData[i];
                 const prev = rawData[i - 1];
-                let val = 0;
+                
+                const curTime = new Date(current.timestamp).getTime();
+                const prevTime = new Date(prev.timestamp).getTime();
+                const duration = curTime - prevTime; // Duration in ms
 
+                let val = 0;
                 const curVal = current[metric] || 0;
                 const prevVal = prev[metric] || 0;
 
                 if (curVal > 0 && prevVal > 0) {
                     val = curVal - prevVal;
-                    if (val < 0) val = 0; // Handle potential resets or errors
+                    if (val < 0) val = 0;
                 }
+
                 diffs.push({
-                    timestamp: new Date(current.timestamp),
-                    value: val
+                    startTime: prevTime,
+                    endTime: curTime,
+                    value: val,
+                    duration: duration
                 });
             }
 
             if (interval === 'raw') {
                 return diffs.map(d => ({
-                    timestamp: d.timestamp,
-                    value: d.value,
-                    raw_submissions: 0 // Not strictly needed for raw view in this new logic but keeping structure
+                    timestamp: new Date(d.endTime),
+                    value: d.value
                 }));
             }
 
             // 2. Aggregate diffs into buckets
+            // We'll distribute the value proportionally to buckets.
             const buckets = new Map();
 
-            diffs.forEach(d => {
-                const time = new Date(d.timestamp);
-                let key;
+            // Helper to get bucket start time
+            function getBucketStart(ms, interval) {
+                const time = new Date(ms);
                 if (interval === 'hour') {
                     time.setMinutes(0, 0, 0);
-                    key = time.getTime();
+                    return time.getTime();
                 } else if (interval === 'day') {
                     time.setHours(0, 0, 0, 0);
-                    key = time.getTime();
+                    return time.getTime();
                 } else if (interval === 'week') {
                     const day = time.getDay();
                     const diff = time.getDate() - day;
                     time.setDate(diff); // Set to Sunday
                     time.setHours(0, 0, 0, 0);
-                    key = time.getTime();
+                    return time.getTime();
                 } else if (interval === 'month') {
                     time.setDate(1);
                     time.setHours(0, 0, 0, 0);
-                    key = time.getTime();
+                    return time.getTime();
                 }
+                return ms;
+            }
 
-                if (!buckets.has(key)) {
-                    buckets.set(key, 0);
+            // Helper to get next bucket start
+            function getNextBucketStart(bucketStart, interval) {
+                const time = new Date(bucketStart);
+                if (interval === 'hour') time.setHours(time.getHours() + 1);
+                else if (interval === 'day') time.setDate(time.getDate() + 1);
+                else if (interval === 'week') time.setDate(time.getDate() + 7);
+                else if (interval === 'month') time.setMonth(time.getMonth() + 1);
+                return time.getTime();
+            }
+
+            diffs.forEach(d => {
+                if (d.value === 0 || d.duration <= 0) return;
+
+                let currentBucketStart = getBucketStart(d.startTime, interval);
+                let remainingDuration = d.duration;
+                let currentValue = d.value;
+                
+                // We assume uniform distribution of 'value' over 'duration' (rate = value/duration)
+                const rate = currentValue / remainingDuration;
+
+                // Iterate through buckets covered by this duration
+                // Start from the bucket covering startTime
+                let t = d.startTime;
+                
+                while (t < d.endTime) {
+                    const bucketEnd = getNextBucketStart(currentBucketStart, interval);
+                    
+                    // The overlap of this segment with the current bucket
+                    // Segment is [t, d.endTime]
+                    // Bucket is [currentBucketStart, bucketEnd]
+                    // But since we increment t, we just care about min(d.endTime, bucketEnd) - t
+                    
+                    const segmentEnd = Math.min(d.endTime, bucketEnd);
+                    const overlap = segmentEnd - t;
+                    
+                    if (overlap > 0) {
+                        const contribution = overlap * rate;
+                        
+                        if (!buckets.has(currentBucketStart)) {
+                            buckets.set(currentBucketStart, 0);
+                        }
+                        buckets.set(currentBucketStart, buckets.get(currentBucketStart) + contribution);
+                    }
+
+                    t = segmentEnd;
+                    if (t < d.endTime) {
+                         currentBucketStart = bucketEnd;
+                    }
                 }
-                buckets.set(key, buckets.get(key) + d.value);
             });
 
             // 3. Format result
             const sortedKeys = Array.from(buckets.keys()).sort();
             return sortedKeys.map(key => ({
                 timestamp: new Date(key),
-                value: buckets.get(key),
-                raw_submissions: 0 // Placeholder as we are summing diffs now
+                value: Math.round(buckets.get(key)), // Round back to integer
+                raw_submissions: 0
             }));
         }
 

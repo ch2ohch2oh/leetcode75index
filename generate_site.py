@@ -40,6 +40,10 @@ def parse_csv(file_path: str) -> list:
 
                     total_accepted = row.get("total_accepted", "0")
                     total_submissions = row.get("total_submissions", "0")
+                    problems_failed = int(row.get("problems_failed", "0"))
+
+                    if problems_failed > 0:
+                        continue
 
                     data.append(
                         {
